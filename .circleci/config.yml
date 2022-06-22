@@ -29,10 +29,24 @@ jobs:
                --template-file template.yml \
                --stack-name myStack-${CIRCLE_WORKFLOW_ID:0:5} \
                --region us-east-1
-
+  configure_infrastructure:
+    docker:
+      - image: python:3.7-alpine3.11
+    steps:
+      - checkout
+      - add_ssh_keys:
+          fingerprints: [a1:27:c4:44:22:13:3c:37:37:a4:82:c8:84:2d:36:d7]
+      - run:
+          name: install ansible
+          command: |
+            apk add --update ansible
+      - run:
+          name: run ansible playbook
+          command: |
+            ansible-playbook -i inventory main.yml
 # Invoke jobs via workflows
 # See: https://circleci.com/docs/2.0/configuration-reference/#workflows
 workflows:
   say-hello-workflow:
     jobs:
-      - create_infrastructure
+      - configure_infrastructure
