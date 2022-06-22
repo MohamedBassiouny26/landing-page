@@ -2,8 +2,18 @@
 # See: https://circleci.com/docs/2.0/configuration-reference
 version: 2.1
 
-# Define a job to be invoked later in a workflow.
-# See: https://circleci.com/docs/2.0/configuration-reference/#jobs
+commands:
+  # Exercise - Rollback
+  destroy_environment:
+    steps:
+      - run:
+          name: Destroy environment
+          # ${CIRCLE_WORKFLOW_ID} is a Built-in environment variable
+          # ${CIRCLE_WORKFLOW_ID:0:5} takes the first 5 chars of the variable CIRCLE_CI_WORKFLOW_ID
+          when: on_fail
+          command: |
+            aws cloudformation delete-stack --stack-name myStack-${CIRCLE_WORKFLOW_ID:0:7}
+
 jobs:
   say-hello:
     # Specify the execution environment. You can specify an image from Dockerhub or use one of our Convenience Images from CircleCI's Developer Hub.
@@ -27,7 +37,7 @@ jobs:
           command: |
             aws cloudformation deploy \
                 --template-file template.yml \
-                --stack-name myStack-${CIRCLE_WORKFLOW_ID:0:5} \
+                --stack-name myStack-${CIRCLE_WORKFLOW_ID:0:7} \
                 --region us-east-1
   configure_infrastructure:
     docker:
@@ -44,9 +54,21 @@ jobs:
           name: run ansible playbook
           command: |
             ansible-playbook -i inventory main.yml
-# Invoke jobs via workflows
+  # Exercise: Smoke Testing
+  # Invoke jobs via workflows
+  smoke_test:
+    docker:
+      - image: alpine:latest
+    steps:
+      - run:
+          name: Test job
+          # Fail the job intentionally to simulate an error.
+          command: return 1
+      - destroy_environment
 # See: https://circleci.com/docs/2.0/configuration-reference/#workflows
 workflows:
   say-hello-workflow:
     jobs:
-      - configure_infrastructure
+      - create_infrastructure
+      - smoke_test:
+          requires: create_infrastructure
